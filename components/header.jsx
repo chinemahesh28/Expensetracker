@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Button } from "./ui/button";
-import { PenBox, LayoutDashboard } from "lucide-react";
+import { PenBox, LayoutDashboard, Bot } from "lucide-react";
 import Link from "next/link";
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
 import Image from "next/image";
@@ -43,6 +43,13 @@ const Header = () => {
               <Button variant="outline">
                 <LayoutDashboard size={18} />
                 <span className="hidden md:inline">Dashboard</span>
+              </Button>
+            </Link>
+
+            <Link href="/chatbot">
+              <Button variant="outline" className="text-teal-600 border-teal-600 hover:bg-teal-50">
+                <Bot size={18} />
+                <span className="hidden md:inline">Chatbot</span>
               </Button>
             </Link>
 

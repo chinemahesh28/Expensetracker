@@ -1,8 +1,8 @@
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { checkUser } from "@/lib/checkUser";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import aj from "@/lib/arcjet";
 import { request } from "@arcjet/next";
@@ -20,25 +20,19 @@ const serializeAmount = (obj) => ({
 // =====================================================
 export async function createTransaction(data) {
   try {
-    const { userId } = await auth();
-    if (!userId) throw new Error("Unauthorized");
+    const user = await checkUser();
+    if (!user) throw new Error("Unauthorized");
 
     // Arcjet Protection
     const req = await request();
     const decision = await aj.protect(req, {
-      userId,
+      userId: user.clerkUserId,
       requested: 1,
     });
 
     if (decision.isDenied()) {
       throw new Error("Too many requests. Please try again later.");
     }
-
-    const user = await db.user.findUnique({
-      where: { clerkUserId: userId },
-    });
-
-    if (!user) throw new Error("User not found");
 
     const account = await db.account.findUnique({
       where: {
@@ -57,8 +51,10 @@ export async function createTransaction(data) {
     const transaction = await db.$transaction(async (tx) => {
       const newTransaction = await tx.transaction.create({
         data: {
+          id: crypto.randomUUID(),
           ...data,
           userId: user.id,
+          updatedAt: new Date(),
           nextRecurringDate:
             data.isRecurring && data.recurringInterval
               ? calculateNextRecurringDate(
@@ -71,7 +67,10 @@ export async function createTransaction(data) {
 
       await tx.account.update({
         where: { id: data.accountId },
-        data: { balance: newBalance },
+        data: { 
+          balance: newBalance,
+          updatedAt: new Date(),
+        },
       });
 
       return newTransaction;
@@ -110,14 +109,8 @@ export async function createTransaction(data) {
 // GET SINGLE TRANSACTION
 // =====================================================
 export async function getTransaction(id) {
-  const { userId } = await auth();
-  if (!userId) throw new Error("Unauthorized");
-
-  const user = await db.user.findUnique({
-    where: { clerkUserId: userId },
-  });
-
-  if (!user) throw new Error("User not found");
+  const user = await checkUser();
+  if (!user) throw new Error("Unauthorized");
 
   const transaction = await db.transaction.findUnique({
     where: {
@@ -136,14 +129,8 @@ export async function getTransaction(id) {
 // =====================================================
 export async function updateTransaction(id, data) {
   try {
-    const { userId } = await auth();
-    if (!userId) throw new Error("Unauthorized");
-
-    const user = await db.user.findUnique({
-      where: { clerkUserId: userId },
-    });
-
-    if (!user) throw new Error("User not found");
+    const user = await checkUser();
+    if (!user) throw new Error("Unauthorized");
 
     const originalTransaction = await db.transaction.findUnique({
       where: { id, userId: user.id },
@@ -167,6 +154,7 @@ export async function updateTransaction(id, data) {
         where: { id, userId: user.id },
         data: {
           ...data,
+          updatedAt: new Date(),
           nextRecurringDate:
             data.isRecurring && data.recurringInterval
               ? calculateNextRecurringDate(
@@ -181,6 +169,7 @@ export async function updateTransaction(id, data) {
         where: { id: data.accountId },
         data: {
           balance: { increment: netBalanceChange },
+          updatedAt: new Date(),
         },
       });
 
@@ -201,14 +190,8 @@ export async function updateTransaction(id, data) {
 // =====================================================
 export async function getUserTransactions(query = {}) {
   try {
-    const { userId } = await auth();
-    if (!userId) throw new Error("Unauthorized");
-
-    const user = await db.user.findUnique({
-      where: { clerkUserId: userId },
-    });
-
-    if (!user) throw new Error("User not found");
+    const user = await checkUser();
+    if (!user) throw new Error("Unauthorized");
 
     const transactions = await db.transaction.findMany({
       where: {
@@ -221,7 +204,8 @@ export async function getUserTransactions(query = {}) {
 
     return { success: true, data: transactions };
   } catch (error) {
-    throw new Error(error.message);
+    console.error("Error in getUserTransactions:", error.message);
+    throw new Error(error.message || "Failed to fetch transactions");
   }
 }
 
@@ -231,7 +215,7 @@ export async function getUserTransactions(query = {}) {
 export async function scanReceipt(file) {
   try {
     const model = genAI.getGenerativeModel({
-      model: "gemini-3.1-pro-preview",
+      model: "gemini-1.5-flash-latest",
     });
 
     const arrayBuffer = await file.arrayBuffer();

@@ -3,8 +3,8 @@
 import aj from "@/lib/arcjet";
 import { db } from "@/lib/prisma";
 import { request } from "@arcjet/next";
-import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
+import { checkUser } from "@/lib/checkUser";
 
 const serializeTransaction = (obj) => {
   const serialized = { ...obj };
@@ -18,16 +18,8 @@ const serializeTransaction = (obj) => {
 };
 
 export async function getUserAccounts() {
-  const { userId } = await auth();
-  if (!userId) throw new Error("Unauthorized");
-
-  const user = await db.user.findUnique({
-    where: { clerkUserId: userId },
-  });
-
-  if (!user) {
-    throw new Error("User not found");
-  }
+  const user = await checkUser();
+  if (!user) throw new Error("Unauthorized");
 
   try {
     const accounts = await db.account.findMany({
@@ -53,15 +45,15 @@ export async function getUserAccounts() {
 
 export async function createAccount(data) {
   try {
-    const { userId } = await auth();
-    if (!userId) throw new Error("Unauthorized");
+    const user = await checkUser();
+    if (!user) throw new Error("Unauthorized");
 
     // Get request data for ArcJet
     const req = await request();
 
     // Check rate limit
     const decision = await aj.protect(req, {
-      userId,
+      userId: user.clerkUserId,
       requested: 1, // Specify how many tokens to consume
     });
 
@@ -80,14 +72,6 @@ export async function createAccount(data) {
       }
 
       throw new Error("Request blocked");
-    }
-
-    const user = await db.user.findUnique({
-      where: { clerkUserId: userId },
-    });
-
-    if (!user) {
-      throw new Error("User not found");
     }
 
     // Convert balance to float before saving
@@ -117,10 +101,12 @@ export async function createAccount(data) {
     // Create new account
     const account = await db.account.create({
       data: {
+        id: crypto.randomUUID(),
         ...data,
         balance: balanceFloat,
         userId: user.id,
         isDefault: shouldBeDefault, // Override the isDefault based on our logic
+        updatedAt: new Date(),
       },
     });
 
@@ -130,21 +116,14 @@ export async function createAccount(data) {
     revalidatePath("/dashboard");
     return { success: true, data: serializedAccount };
   } catch (error) {
-    throw new Error(error.message);
+    console.error("Error in createAccount:", error.message);
+    throw new Error(error.message || "Failed to create account");
   }
 }
 
 export async function getDashboardData() {
-  const { userId } = await auth();
-  if (!userId) throw new Error("Unauthorized");
-
-  const user = await db.user.findUnique({
-    where: { clerkUserId: userId },
-  });
-
-  if (!user) {
-    throw new Error("User not found");
-  }
+  const user = await checkUser();
+  if (!user) throw new Error("Unauthorized");
 
   // Get all user transactions
   const transactions = await db.transaction.findMany({
