@@ -1,3 +1,6 @@
+// ✅ Prevent this route from running during build
+export const dynamic = "force-dynamic";
+
 import { serve } from "inngest/next";
 
 import { inngest } from "@/lib/inngest/client";
@@ -8,6 +11,7 @@ import {
   triggerRecurringTransactions,
 } from "@/lib/inngest/function";
 
+// ✅ Export handlers safely
 export const { GET, POST, PUT } = serve({
   client: inngest,
   functions: [
