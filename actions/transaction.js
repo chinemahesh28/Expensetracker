@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { checkUser } from "@/lib/checkUser";
 import { GoogleGenerativeAI } from "@google/generative-ai";
@@ -34,7 +34,7 @@ export async function createTransaction(data) {
       throw new Error("Too many requests. Please try again later.");
     }
 
-    const account = await prisma.account.findUnique({
+    const account = await db.account.findUnique({
       where: {
         id: data.accountId,
         userId: user.id,
@@ -48,7 +48,7 @@ export async function createTransaction(data) {
 
     const newBalance = account.balance.toNumber() + balanceChange;
 
-    const transaction = await prisma.$transaction(async (tx) => {
+    const transaction = await db.$transaction(async (tx) => {
       const newTransaction = await tx.transaction.create({
         data: {
           id: crypto.randomUUID(),
@@ -112,7 +112,7 @@ export async function getTransaction(id) {
   const user = await checkUser();
   if (!user) throw new Error("Unauthorized");
 
-  const transaction = await prisma.transaction.findUnique({
+  const transaction = await db.transaction.findUnique({
     where: {
       id,
       userId: user.id,
@@ -132,7 +132,7 @@ export async function updateTransaction(id, data) {
     const user = await checkUser();
     if (!user) throw new Error("Unauthorized");
 
-    const originalTransaction = await prisma.transaction.findUnique({
+    const originalTransaction = await db.transaction.findUnique({
       where: { id, userId: user.id },
     });
 
@@ -149,7 +149,7 @@ export async function updateTransaction(id, data) {
 
     const netBalanceChange = newBalanceChange - oldBalanceChange;
 
-    const transaction = await prisma.$transaction(async (tx) => {
+    const transaction = await db.$transaction(async (tx) => {
       const updated = await tx.transaction.update({
         where: { id, userId: user.id },
         data: {
@@ -193,7 +193,7 @@ export async function getUserTransactions(query = {}) {
     const user = await checkUser();
     if (!user) throw new Error("Unauthorized");
 
-    const transactions = await prisma.transaction.findMany({
+    const transactions = await db.transaction.findMany({
       where: {
         userId: user.id,
         ...query,

@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { checkUser } from "@/lib/checkUser";
 
@@ -19,7 +19,7 @@ export async function getAccountWithTransactions(accountId) {
   const user = await checkUser();
   if (!user) throw new Error("Unauthorized");
 
-  const account = await prisma.account.findUnique({
+  const account = await db.account.findUnique({
     where: {
       id: accountId,
       userId: user.id,
@@ -48,7 +48,7 @@ export async function bulkDeleteTransactions(transactionIds) {
     if (!user) throw new Error("Unauthorized");
 
     // Get transactions to calculate balance changes
-    const transactions = await prisma.transaction.findMany({
+    const transactions = await db.transaction.findMany({
       where: {
         id: { in: transactionIds },
         userId: user.id,
@@ -66,7 +66,7 @@ export async function bulkDeleteTransactions(transactionIds) {
     }, {});
 
     // Delete transactions and update account balances in a transaction
-    await prisma.$transaction(async (tx) => {
+    await db.$transaction(async (tx) => {
       // Delete transactions
       await tx.transaction.deleteMany({
         where: {
@@ -105,7 +105,7 @@ export async function updateDefaultAccount(accountId) {
     if (!user) throw new Error("Unauthorized");
 
     // First, unset any existing default account
-    await prisma.account.updateMany({
+    await db.account.updateMany({
       where: {
         userId: user.id,
         isDefault: true,
@@ -114,7 +114,7 @@ export async function updateDefaultAccount(accountId) {
     });
 
     // Then set the new default account
-    const account = await prisma.account.update({
+    const account = await db.account.update({
       where: {
         id: accountId,
         userId: user.id,

@@ -1,7 +1,7 @@
 "use server";
 
 import aj from "@/lib/arcjet";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/prisma";
 import { request } from "@arcjet/next";
 import { revalidatePath } from "next/cache";
 import { checkUser } from "@/lib/checkUser";
@@ -22,7 +22,7 @@ export async function getUserAccounts() {
   if (!user) throw new Error("Unauthorized");
 
   try {
-    const accounts = await prisma.account.findMany({
+    const accounts = await db.account.findMany({
       where: { userId: user.id },
       orderBy: { createdAt: "desc" },
       include: {
@@ -81,7 +81,7 @@ export async function createAccount(data) {
     }
 
     // Check if this is the user's first account
-    const existingAccounts = await prisma.account.findMany({
+    const existingAccounts = await db.account.findMany({
       where: { userId: user.id },
     });
 
@@ -92,14 +92,14 @@ export async function createAccount(data) {
 
     // If this account should be default, unset other default accounts
     if (shouldBeDefault) {
-      await prisma.account.updateMany({
+      await db.account.updateMany({
         where: { userId: user.id, isDefault: true },
         data: { isDefault: false },
       });
     }
 
     // Create new account
-    const account = await prisma.account.create({
+    const account = await db.account.create({
       data: {
         id: crypto.randomUUID(),
         ...data,
@@ -126,7 +126,7 @@ export async function getDashboardData() {
   if (!user) throw new Error("Unauthorized");
 
   // Get all user transactions
-  const transactions = await prisma.transaction.findMany({
+  const transactions = await db.transaction.findMany({
     where: { userId: user.id },
     orderBy: { date: "desc" },
   });

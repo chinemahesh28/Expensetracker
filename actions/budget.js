@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { checkUser } from "@/lib/checkUser";
 
@@ -9,7 +9,7 @@ export async function getCurrentBudget(accountId) {
     const user = await checkUser();
     if (!user) throw new Error("Unauthorized");
 
-    const budget = await prisma.budget.findFirst({
+    const budget = await db.budget.findFirst({
       where: {
         userId: user.id,
       },
@@ -28,7 +28,7 @@ export async function getCurrentBudget(accountId) {
       0
     );
 
-    const expenses = await prisma.transaction.aggregate({
+    const expenses = await db.transaction.aggregate({
       where: {
         userId: user.id,
         type: "EXPENSE",
@@ -61,7 +61,7 @@ export async function updateBudget(amount) {
     if (!user) throw new Error("Unauthorized");
 
     // Update or create budget
-    const budget = await prisma.budget.upsert({
+    const budget = await db.budget.upsert({
       where: {
         userId: user.id,
       },
