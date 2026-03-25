@@ -78,8 +78,6 @@ npx prisma db push
 npm run dev
 ```
 
----
-
 ## 🎯 Purpose
 
 This project demonstrates:
