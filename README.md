@@ -1,7 +1,3 @@
-Here is the **updated minimal README** with image scanning removed:
-
----
-
 # 💰 FinanceBuddy
 
 FinanceBuddy is a full-stack personal finance management web application that allows users to track expenses and visualize spending insights in real time.
